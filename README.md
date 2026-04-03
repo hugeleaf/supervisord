@@ -1,24 +1,29 @@
+[English](README.md) | [中文](README_CN.md)
+
 # Why this project?
 
 The python script supervisord is a powerful tool used by a lot of guys to manage the processes. I like  supervisord too.
 
 But this tool requires that the big python environment be installed in target system. In some situation, for example in the docker environment, the python is too big for us.
 
-This project re-implements supervisord in go-lang. Compiled supervisord is very suitable for environments where python is not installed.
+This project re-implements supervisord in golang. Compiled supervisord is very suitable for environments where python is not installed.
 
 # Building the supervisord
 
-Before compiling the supervisord, make sure the go-lang 1.11+ is installed in your environment.
+Before compiling the supervisord, make sure the golang 1.11+ is installed in your environment.
 
 To compile supervisord for **linux**, run following commands:
 
-1. go generate
-2. GOOS=linux go build -tags release -a -ldflags "-linkmode external -extldflags -static" -o supervisord
+```bash
+cd supervisord
+GOOS=linux go build -a -ldflags "-linkmode external -extldflags -static" -o supervisord
+```
 
-To compile supervisord for **windows**, run following commands on one `Windows PC`:
+Or build from the project root:
 
-1. go mod tidy
-2. go build -tags release -o supervisord.exe
+```bash
+go build -o supervisord ./supervisord
+```
 
 # Run the supervisord
 
@@ -104,6 +109,49 @@ The TCP http server setting is in "inet_http_server" section.
 
 If both "inet_http_server" and "unix_http_server" are not set up in the configuration file, no http server will be started.
 
+### HTTP Server Configuration Options
+
+The following parameters can be configured in `[inet_http_server]` or `[unix_http_server]` sections:
+
+- **port** (inet_http_server only). The address to bind the HTTP server to, e.g., `:9001` or `127.0.0.1:9001`.
+- **username**. Username for HTTP Basic Authentication. Optional.
+- **password**. Password for HTTP Basic Authentication. Optional. Supports plain text or SHA1 hashed format (prefix with `{SHA}`).
+- **path_prefix**. URL path prefix for all HTTP endpoints. Useful when running behind a reverse proxy. Default is empty (no prefix).
+
+Example with authentication:
+
+```ini
+[inet_http_server]
+port=127.0.0.1:9001
+username=admin
+password=secret
+```
+
+With SHA1 hashed password:
+
+```ini
+[inet_http_server]
+port=127.0.0.1:9001
+username=admin
+password={SHA}5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8
+```
+
+When authentication is configured, the browser will prompt for credentials when accessing the Web GUI or API.
+
+Example with path prefix:
+
+```ini
+[inet_http_server]
+port=127.0.0.1:9001
+path_prefix=/supervisord
+```
+
+With the above configuration, all endpoints will be prefixed with `/supervisord`:
+- Web GUI: `http://127.0.0.1:9001/supervisord/webgui/`
+- REST API: `http://127.0.0.1:9001/supervisord/program/list`
+- XML-RPC: `http://127.0.0.1:9001/supervisord/RPC2`
+- Metrics: `http://127.0.0.1:9001/supervisord/metrics`
+
 ## Supervisord daemon settings
 
 Following parameters configured in "supervisord" section:
@@ -139,14 +187,13 @@ Supervised program settings configured in [program:programName] section and incl
 - **stderr_logfile**. Where STDERR of supervised command should be redirected. (Particular values described lower in this file).
 - **stderr_logfile_maxbytes**. Log size after exceed which log will be rotated.
 - **stderr_logfile_backups**. Number of rotated log-files to preserve.
-- **environment**. List of VARIABLE=value to be passed to supervised program. It has higher priority than `envFiles`.
-- **envFiles**. List of .env files to be loaded and passed to supervised program. 
+- **environment**. List of VARIABLE=value to be passed to supervised program.
 - **priority**. The relative priority of the program in the start and shutdown ordering
 - **user**. Sudo to this USER or USER:GROUP right before exec supervised command.
 - **directory**. Jump to this path and exec supervised command there.
 - **stopasgroup**. Also stop this program when stopping group of programs where this program is listed.
 - **killasgroup**. Also kill this program when stopping group of programs where this program is listed.
-- **restartPause**. Wait (at least) this amount of seconds after stopping supervised program before starts it again.
+- **restartpause**. Wait (at least) this amount of seconds after stpping suprevised program before strt it again.
 - **restart_when_binary_changed**. Boolean value (false or true) to control if the supervised command should be restarted when its executable binary changes. Defaults to false.
 - **restart_cmd_when_binary_changed**. The command to restart the program if the program binary itself is changed.
 - **restart_signal_when_binary_changed**. The signal sent to the program for restarting if the program binary is changed.
@@ -168,14 +215,13 @@ depends_on = B, C
 
 ## Set default parameters for all supervised programs
 
-All common parameters that are identical for all supervised programs can be defined once in "program-default" section and omitted in all other program sections.
+All common parameters that are identical for all supervised programs can be defined once in "program-default" section and omited in all other program sections.
 
 In example below the VAR1 and VAR2 environment variables apply to both test1 and test2 supervised programs:
 
 ```ini
 [program-default]
 environment=VAR1="value1",VAR2="value2"
-envFiles=global.env,prod.env
 
 [program:test1]
 ...
@@ -216,25 +262,14 @@ Multiple log files can be configured for the stdout_logfile and stderr_logfile w
 stdout_logfile = test.log, /dev/stdout
 ```
 
-### syslog settings
-
-if write the log to the syslog, following additional parameter can be set like:
-```ini
-syslog_facility=local0
-syslog_tag=test
-syslog_stdout_priority=info
-syslog_stderr_priority=err
-```
-- **syslog_facility**, can be one of(case insensitive): KERNEL, USER, MAIL, DAEMON, AUTH, SYSLOG, LPR, NEWS, UUCP, CRON, AUTHPRIV, FTP, LOCAL0~LOCAL7
-- **syslog_stdout_priority**, can be one of(case insensitive): EMERG, ALERT, CRIT, ERR, WARN, NOTICE, INFO, DEBUG
-- **syslog_stderr_priority**, can be one of(case insensitive): EMERG, ALERT, CRIT, ERR, WARN, NOTICE, INFO, DEBUG
-
-
 # Web GUI
 
-Supervisord has builtin web GUI: you can start, stop & check the status of program from the GUI. Following picture shows the default web GUI:
+Supervisord has builtin web GUI: you can start, stop & check the status of program from the GUI. The web GUI provides:
 
-![alt text](https://github.com/ochinchina/supervisord/blob/master/go_supervisord_gui.png)
+- **Dashboard**: View all managed programs with their current status (running/stopped)
+- **Process Control**: Start/stop individual or multiple programs with one click
+- **Statistics**: Display total programs count, running count and stopped count
+- **Supervisor Management**: Reload configuration or shutdown the supervisor
 
 Please note that in order to see|use Web GUI you should configure it in /etc/supervisord.conf both in [inet_http_server] (and|or [unix_http_server] if you prefer unix domain socket) and [supervisorctl]:
 
