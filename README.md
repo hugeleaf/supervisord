@@ -1,4 +1,8 @@
-[English](README.md) | [中文](README_CN.md)
+Forked from [ochinchina/supervisord](https://github.com/ochinchina/supervisord)
+
+---
+
+[English](README.md) | [中文](README_CN.md)  
 
 # Why this project?
 
